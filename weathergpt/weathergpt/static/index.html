@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WeatherGPT — Conversational Weather Intelligence</title>
+<meta name="description" content="WeatherGPT: conversational weather, climate and disaster intelligence for India. Built for the MoES / India Meteorological Department problem statement.">
+<meta name="theme-color" content="#0d1620">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 8h12a3 3 0 1 0-2.8-4" stroke="#06131a" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M3 13h15a3 3 0 1 1-2.8 4.2" stroke="#06131a" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div>
+        <h1>Weather<span>GPT</span></h1>
+        <small>MoES · India Meteorological Department</small>
+      </div>
+    </div>
+
+    <div class="spacer"></div>
+
+    <button class="bell" id="alertBell" type="button" title="Live alerts" aria-label="Live alerts">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+      <span class="badge" id="alertBadge" hidden>0</span>
+    </button>
+
+    <div class="pill" id="statusPill"><span class="dot"></span>Loading…</div>
+
+    <div class="toggle" id="modeToggle">
+      <div class="thumb"></div>
+      <button class="on" data-mode="layman">Simple</button>
+      <button data-mode="scientific">Scientific</button>
+    </div>
+
+    <select class="lang" id="lang" aria-label="Language">
+      <option value="en">English</option>
+    </select>
+  </header>
+
+  <div class="body">
+    <!-- Chat panel -->
+    <section class="chat">
+      <div class="thread" id="thread"></div>
+
+      <div class="suggest">
+        <div class="sl">Try asking</div>
+        <div class="chips" id="chips"></div>
+      </div>
+
+      <form class="composer" id="composer">
+        <button type="button" class="mic" id="mic" title="Voice input">🎙️</button>
+        <input id="chatInput" type="text" autocomplete="off"
+               placeholder="Ask about weather anywhere in India…">
+        <button type="submit" class="send" id="sendBtn">Send</button>
+      </form>
+      <div class="foot">Weather &amp; geocoding: Open-Meteo · Radar: RainViewer · News: Google News / ReliefWeb · Map: OpenStreetMap. Answers are AI-synthesised from live data.</div>
+    </section>
+
+    <!-- Map -->
+    <section class="mapwrap">
+      <div id="map"></div>
+      <canvas id="windCanvas"></canvas>
+
+      <div class="mpanel layers">
+        <div class="lt">Base map</div>
+        <div class="basetoggle">
+          <button class="lbtn on" id="baseStreets">🗺 Streets</button>
+          <button class="lbtn" id="baseSat">🛰 Satellite</button>
+        </div>
+        <div class="lt">Live layers</div>
+        <div class="lgrid">
+          <button class="lbtn" data-layer="radar">🌧 Rain radar</button>
+          <button class="lbtn" data-layer="clouds">☁ Clouds</button>
+          <button class="lbtn" data-layer="temp">🌡 Temp</button>
+          <button class="lbtn" data-layer="wind">🌬 Wind</button>
+        </div>
+        <div class="lt">Events</div>
+        <button class="lbtn on" id="toggleAlerts" type="button">🚨 Live alert pins</button>
+      </div>
+
+      <div class="mpanel radar-ctl" id="radarCtl">
+        <button id="radarPrev" title="Previous frame">⏮</button>
+        <button id="radarPlay" title="Play/pause">⏸</button>
+        <button id="radarNext" title="Next frame">⏭</button>
+        <span class="ts" id="radarTs">—</span>
+      </div>
+
+      <div class="mpanel legend" id="legend">
+        <div class="lt" id="legendTitle">Legend</div>
+        <div class="legend-bar" id="legendBar"></div>
+        <div class="legend-row"><span id="legendLo">Low</span><span id="legendHi">High</span></div>
+        <div class="cred" id="legendCred"></div>
+      </div>
+
+      <div class="ticker" id="ticker" title="Show on map">
+        <span class="dot"></span>
+        <span id="tickerText">Checking live disaster feeds…</span>
+      </div>
+
+      <div class="veil" id="veil">
+        <div style="text-align:center">
+          <div class="spinner"></div>
+          Retrieving live data…
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<aside class="drawer" id="alertDrawer" aria-label="Live alerts">
+  <div class="d-head">
+    <h2>🚨 Live alerts</h2>
+    <button class="d-close" id="alertClose" type="button" aria-label="Close">✕</button>
+  </div>
+  <div class="d-meta" id="alertMeta">Checking feeds…</div>
+  <button class="d-notify" id="alertNotify" type="button">Enable desktop notifications</button>
+  <div class="a-list" id="alertList"></div>
+  <div class="d-foot">
+    <b>Red</b> = official alert or 3+ outlets · <b>Amber</b> = 2 outlets · <b>Blue</b> = single unverified report.
+    News-based pins sit at the region's centre, not the exact site. Always follow official IMD / NDMA / state warnings.
+  </div>
+</aside>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
